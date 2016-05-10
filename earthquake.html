@@ -14,12 +14,9 @@
 		app.main = {
 			init:function(){
 				console.log('test');
+
 				var now = Date.now();
-				$.ajax({
-					url: 'http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2000-01-01&endtime='+(new Date()).toISOString()+'&latitude=37.7749&longitude=122.4194&maxradiuskm=500',
-					type:'GET',
-					success: app.main.handleData
-				});
+				app.main.makeRequest();
 			},
 			handleData:function(data){
 				var cumulativeMagnitude = 0;
@@ -27,6 +24,17 @@
 					cumulativeMagnitude+=feature.properties.mag;
 				});
 				document.querySelector("#cumulativeMagnitude").innerHTML = "Cumulative magnitude: "+cumulativeMagnitude;
+			},
+			makeRequest:function(){
+				document.querySelector("#cumulativeMagnitude").innerHTML = "Working";
+				var lat = Number(document.querySelector("#lat").value);
+				var long = Number(document.querySelector("#long").value);
+				var rad = Number(document.querySelector("#rad").value);
+				$.ajax({
+					url: 'http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2000-01-01&endtime='+(new Date()).toISOString()+'&latitude='+lat+'&longitude='+long+'&maxradiuskm='+rad,
+					type:'GET',
+					success: app.main.handleData
+				});
 			}
 		};
 
@@ -35,5 +43,11 @@
 </head>
 <body>
 	<p id="cumulativeMagnitude"></p>
+	<form>
+		Lat: <input id="lat" value='37.7749'>
+		Long: <input id="long" value='122.4194'>
+		Radius: <input id="rad" value='500'>
+	</form>
+	<button onclick='app.main.makeRequest()'>Make request</button>
 </body>
 </html>
