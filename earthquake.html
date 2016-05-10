@@ -14,14 +14,19 @@
 		app.main = {
 			init:function(){
 				console.log('test');
+				var now = Date.now();
 				$.ajax({
-					url: 'http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2014-01-01&endtime=2014-01-02',
+					url: 'http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2000-01-01&endtime='+(new Date()).toISOString()+'&latitude=37.7749&longitude=122.4194&maxradiuskm=500',
 					type:'GET',
 					success: app.main.handleData
 				});
 			},
 			handleData:function(data){
-				console.log(data);
+				var cumulativeMagnitude = 0;
+				data.features.forEach(function(feature){
+					cumulativeMagnitude+=feature.properties.mag;
+				});
+				document.querySelector("#cumulativeMagnitude").innerHTML = "Cumulative magnitude: "+cumulativeMagnitude;
 			}
 		};
 
@@ -29,5 +34,6 @@
 	</script>
 </head>
 <body>
+	<p id="cumulativeMagnitude"></p>
 </body>
 </html>
