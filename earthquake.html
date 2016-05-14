@@ -10,13 +10,28 @@
 		'use strict'
 
 		var app = app || {};
+		var map;
+
+		function externalInit(){
+			var mapOptions = {
+					center: {lat:39.828127,lng:-98.579404},
+					zoom:3
+				};
+			map = new google.maps.Map(document.getElementById('mapDiv'), mapOptions);
+			app.main.init();
+		}
 
 		app.main = {
+			map:undefined,
 			init:function(){
 				console.log('test');
-
+				var mapOptions = {
+					center: {lat:39.828127,lng:-98.579404},
+					zoom:3
+				};
+				//map = new google.maps.Map(document.getElementById('mapDiv'), mapOptions);
 				var now = Date.now();
-				app.main.makeRequest();
+				//app.main.makeRequest();
 			},
 			
 			makeRequest:function(){
@@ -46,8 +61,11 @@
 				});
 				document.querySelector("#cumulativeMagnitude").innerHTML = "Cumulative magnitude: "+cumulativeMagnitude;
 			}
-		window.onload = app.main.init;
-	</script>
+		/*window.onload = function(){
+			app.main.init();
+		}*/
+	</script>	
+	<script src='https://maps.googleapis.com/maps/api/js?key=AIzaSyDi79ceE9l10cj5sgapDUGQkYgDZe7iZ2s&callback=externalInit' async defer></script>
 </head>
 <body>
 	<p id="cumulativeMagnitude"></p>
@@ -57,5 +75,8 @@
 		Radius: <input id="rad" value='500'>
 	</form>
 	<button onclick='app.main.makeRequest()'>Make request</button>
+	<div id="mapDiv">
+
+	</div>
 </body>
 </html>
