@@ -1,35 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="utf-8" />
+	<meta charset="utf-8" />	
+	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+	<link href='https://fonts.googleapis.com/css?family=Passion+One' rel='stylesheet' type='text/css'>
 	<style>
 		#mapDiv{
 	 		margin:0;
 	 		padding: 0;
-	 		width: 542px;
+	 		width: 100%;
 	 		height: 300px;
 	 		border: 1px solid black;
 	 	}
+	 	#column{
+	 		width: 500px;
+	 		margin-left: auto;
+	 		margin-right: auto;
+	 	}
+	 	h1{
+	 		font-family:'Passion One', cursive;
+	 		letter-spacing: .2em;
+	 	}
+	 	p{
+	 		font-family: 'Passion One',cursive;
+	 		letter-spacing: .1em
+	 	}
 	</style>
-	<title>Space Battle</title>
+	<title>Earthquake Finder</title>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
 	<script>
 		'use strict'
 
-		var app = app || {};
 		var map;
 		var infoWindow;
 		var markers = [];
+		var startTime;
+		var endTime;
+		var minMagnitude;
+		var maxMagnitude;
+		var localstorage = false;
+		var canRequest = false;
 
+		//initialization function
 		function externalInit(){
+			//figure out whether we can use local storage
+			try {
+				var storage = window['localStorage'],
+					x = '__storage_test__';
+				storage.setItem(x, x);
+				storage.removeItem(x);
+				localstorage = true;
+			}
+			catch(e) {
+				localstorage = false;
+			}
+
+			//get initial slider values - from local storage if we can
+			startTime = (localstorage && localStorage.startTime) ? new Date(Number(localStorage.startTime)) : new Date('2002.01.01');
+			endTime = (localstorage && localStorage.endTime) ? new Date(Number(localStorage.endTime)) : new Date(Date.now());
+			minMagnitude = (localstorage && localStorage.minMagnitude) ? Number(localStorage.minMagnitude) : 0;
+			maxMagnitude = (localstorage && localStorage.maxMagnitude) ? Number(localStorage.maxMagnitude) : 10;
+
+			//set label text
+			$("#date-range")[0].innerHTML = startTime.toDateString()+" - "+endTime.toDateString();
+			$("#magnitude-range")[0].innerHTML = "Magnitude: "+minMagnitude+" - "+maxMagnitude;
+
+			//make the map
 			var mapOptions = {
-					center: {lat:39.828127,lng:-98.579404},
-					zoom:3
-				};
+				center: {lat:((localstorage && localStorage.mapLat)? Number(localStorage.mapLat) : 39.828127),lng:((localstorage && localStorage.mapLng)? Number(localStorage.mapLng): -98.579404)},
+				zoom: (localstorage && localStorage.mapZoom) ? Number(localStorage.mapZoom) :  3
+			};
 			map = new google.maps.Map(document.getElementById('mapDiv'), mapOptions);
-			app.main.init();
+			//listeners for center and zoom, for local storage
+			map.addListener('center_changed', function() {
+				if(localstorage)
+				{
+					var center = map.getCenter();   
+					localStorage.mapLat = center.lat();
+					localStorage.mapLng = center.lng(); 
+				}
+			});
+			map.addListener('zoom_changed', function() {
+				if(localstorage)
+					localStorage.mapZoom = map.getZoom();    
+			});
+
+			//sliders:
+			//date-time
+			$(function() {
+				$("#dateSlider-range").slider({
+					range: true,
+					min: new Date('2002.01.01').getTime(),
+					max: Date.now(),
+					step: 86400,
+					values: [startTime.getTime(), endTime.getTime()],
+					slide: function(event, ui) {
+						if(localstorage){
+							localStorage.startTime = ui.values[0];
+							localStorage.endTime = ui.values[1];
+						}
+						startTime = new Date(ui.values[0]);
+						endTime = new Date(ui.values[1]);
+						$("#date-range")[0].innerHTML = startTime.toDateString()+" - "+endTime.toDateString();
+					}
+				});
+			});
+			//magnitude
+			$(function() {
+				$("#magnitudeSlider-range").slider({
+					range: true,
+					min: 0,
+					max: 10,
+					step: .1,
+					values: [minMagnitude, maxMagnitude],
+					slide: function(event, ui) {
+						if(localstorage){
+							localStorage.minMagnitude = ui.values[0];
+							localStorage.maxMagnitude = ui.values[1];
+						}
+						minMagnitude = ui.values[0];
+						maxMagnitude = ui.values[1];
+						$("#magnitude-range")[0].innerHTML = "Magnitude: "+minMagnitude+" - "+maxMagnitude;
+					}
+				});
+			});
+
+			//for the enter key
+			window.addEventListener('keyup', function (e) {
+			    if (canRequest && e.keyCode === 13) {
+			        makeRequest();
+			    }
+			}, false);
+
+			//flip the switch
+			canRequest = true;
 		}
 
+		//clears all markers
 		function clearMarkers(){
 			if(infoWindow)
 				infoWindow.close();
@@ -38,76 +146,87 @@
 			});
 			markers = [];
 		}
-		function addMarker(latitude,longitude,title){
-	        var position = {lat:Number(latitude),lng:Number(longitude)};
-	        var marker = new google.maps.Marker({position:position,map:map});
-	        marker.setTitle(title);
-	        google.maps.event.addListener(marker,'click',function(e){
-	          makeInfoWindow(this.position,this.title);
-	        });
-	        markers.push(marker);
-	      }
-	      function makeInfoWindow(position,msg){
-	        if(infoWindow) infoWindow.close();
-	        infoWindow = new google.maps.InfoWindow({map:map,position:position,content:"<b>"+msg+"</b>"});
-	      }
 
-		app.main = {
-			map:undefined,
-			init:function(){
-				console.log('test');
-				var mapOptions = {
-					center: {lat:39.828127,lng:-98.579404},
-					zoom:3
-				};
-				//map = new google.maps.Map(document.getElementById('mapDiv'), mapOptions);
-				var now = Date.now();
-				//app.main.makeRequest();
-			},
-			
-			makeRequest:function(){
-				$("#reqButton")[0].onclick = undefined;
-				document.querySelector("#cumulativeMagnitude").innerHTML = "Working";
-				//var lat = Number(document.querySelector("#lat").value);
-				//var long = Number(document.querySelector("#long").value);
-				//var rad = Number(document.querySelector("#rad").value);
-				var bounds = map.getBounds();
-				var min = {lat:bounds.getSouthWest().lat(),lng:bounds.getSouthWest().lng()};
-				var max = {lat:bounds.getNorthEast().lat(),lng:bounds.getNorthEast().lng()};
-				var url = 'proxy.php?filename=http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&callback=handleData&starttime=2000-01-01&endtime='+(new Date()).toISOString()+'&minlatitude='+min.lat+'&minlongitude='+min.lng+'&maxlatitude='+max.lat+'&maxlongitude='+max.lng;
-				url = url.replace(/&/g,'%26');
-				/*$.ajax({
-					url: 'http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2000-01-01&endtime='+(new Date()).toISOString()+'&latitude='+lat+'&longitude='+long+'&maxradiuskm='+rad,
-					type:'GET',
-					success: handleData
-				});*/
-				var script = document.createElement('script');
-				script.setAttribute('src',url);
-				script.setAttribute('id','tempScript');
-				document.querySelector('head').appendChild(script);
-			}
-		};
-		function handleData(data){
-			$("#cumulativeMagnitude")[0].innerHTML = "done";
-			clearMarkers();
-			//addMarker(0,0,"test");
-			//var cumulativeMagnitude = 0;
-			data.features.forEach(function(feature){
-				addMarker(feature.geometry.coordinates[1],feature.geometry.coordinates[0],"no title");
+		//adds a marker
+		function addMarker(latitude,longitude,title){
+			var position = {lat:Number(latitude),lng:Number(longitude)};
+			var marker = new google.maps.Marker({position:position,map:map});
+			marker.setTitle(title);
+			google.maps.event.addListener(marker,'click',function(e){
+				makeInfoWindow(this.position,this.title);
 			});
-			$("#reqButton")[0].onclick = app.main.makeRequest;
+			markers.push(marker);
 		}
-		/*window.onload = function(){
-			app.main.init();
-		}*/
+
+		//create info window
+		function makeInfoWindow(position,msg){
+			if(infoWindow)
+				infoWindow.close();
+			infoWindow = new google.maps.InfoWindow({map:map,position:position,content:"<b>"+msg+"</b>"});
+		}
+
+		//make a request to the USGS API
+		function makeRequest(){
+			//bail with diagnostic message if zoom is too low - this will make the request take forever
+			if(map.getZoom()<7)
+			{
+				$("#diagText")[0].innerHTML = "Request failed - zoom in further";
+				return;
+			}
+
+			//prevent additional requests while one is runningg
+			canRequest = false;
+
+			//diagnostic text
+			document.querySelector("#diagText").innerHTML = "Working";
+
+			//determine map bounds
+			var bounds = map.getBounds();
+			var min = {lat:bounds.getSouthWest().lat(),lng:bounds.getSouthWest().lng()};
+			var max = {lat:bounds.getNorthEast().lat(),lng:bounds.getNorthEast().lng()};
+
+			//request URL - bounded to map bounds, start and end time from slider, and min and max magnitude from slider
+			var url = 'proxy.php?filename=http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&callback=handleData&starttime='+startTime.toISOString()+'&endtime='+endTime.toISOString()+'&minlatitude='+min.lat+'&minlongitude='+min.lng+'&maxlatitude='+max.lat+'&maxlongitude='+max.lng+'&minmagnitude='+minMagnitude+'&maxmagnitude='+maxMagnitude;
+			url = url.replace(/&/g,'%26'); //something something php
+
+			//make request via DOM injection
+			var script = document.createElement('script');
+			script.setAttribute('src',url);
+			script.setAttribute('id','tempScript');
+			document.querySelector('head').appendChild(script);
+		}
+
+		//handler for the response
+		function handleData(data){
+			//diagnostic text
+			$("#diagText")[0].innerHTML = "Done";
+
+			//clear markers
+			clearMarkers();
+
+			//add a marker for every earthquake in the response
+			data.features.forEach(function(feature){
+				addMarker(feature.geometry.coordinates[1],feature.geometry.coordinates[0],feature.properties.place+"<br>"+ new Date(feature.properties.time).toDateString()+"<br>Magnitude "+feature.properties.mag);
+			});
+
+			//re-enable requests
+			canRequest = true;
+		}
 	</script>	
 	<script src='https://maps.googleapis.com/maps/api/js?key=AIzaSyDi79ceE9l10cj5sgapDUGQkYgDZe7iZ2s&callback=externalInit' async defer></script>
 </head>
 <body>
-	<p id="cumulativeMagnitude"></p>
-	<button id="reqButton" onclick='app.main.makeRequest()'>Make request</button>
-	<div id="mapDiv">
+	<div id="column">
+	<h1>Earthquake Finder</h1>
+		<div id="mapDiv">
 
+		</div>
+		<p id='date-range'></p>
+		<div id="dateSlider-range"> </div>
+		<p id='magnitude-range'></p>
+		<div id="magnitudeSlider-range"> </div>
+		<input id="amount" type="hidden"/>
+		<p id="diagText">Press ENTER to search</p>
 	</div>
 </body>
 </html>
